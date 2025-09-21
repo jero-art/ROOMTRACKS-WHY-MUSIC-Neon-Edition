@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ROOMTRACKS / WHY-MUSIC — Neon Edition</title>
+<style>
+  :root{
+    --bg:#070a12; --panel:#0b1020; --line:#12203a;
+    --fg:#e8f2ff; --mut:#8fb4ff;
+    --cyan:#00e7ff; --mag:#ff3df7; --yel:#ffd166;
+    --glowC:0 0 12px #00e7ff88, 0 0 24px #00e7ff55;
+    --glowM:0 0 12px #ff3df788, 0 0 24px #ff3df755;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:radial-gradient(1200px 800px at 80% -20%, #101a32 0%, #070a12 60%), #070a12;color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
+  .wrap{max-width:1000px;margin:28px auto;padding:0 16px}
+  .hdr{display:flex;align-items:center;gap:10px}
+  .logo{font-weight:700;letter-spacing:.02em}
+  .logo span{color:var(--cyan);text-shadow:var(--glowC)}
+  .grid{
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background-image:
+      linear-gradient(#0e173255 1px, transparent 1px),
+      linear-gradient(90deg,#0e173255 1px, transparent 1px);
+    background-size:40px 40px,40px 40px;
+    mask-image: radial-gradient(1200px 800px at 50% -10%, rgba(255,255,255,.35), transparent 65%);
+  }
+  .card{border:1px solid var(--line); background:linear-gradient(180deg,rgba(16,24,44,.7),rgba(8,12,24,.7));
+    border-radius:16px; padding:16px; box-shadow:0 0 0 1px #000 inset}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0}
+  label{min-width:92px;color:var(--mut);font-size:13px}
+  select,input[type=range]{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:#bcd7ff;font-size:12px}
+  .right{margin-left:auto}
+  button{
+    border:1px solid #1d2b4d; background:linear-gradient(180deg,#0e1a31,#0a1326);
+    color:var(--fg); border-radius:10px; padding:9px 14px; cursor:pointer; transition:transform .06s ease, box-shadow .15s ease;
+  }
+  button:hover{box-shadow:var(--glowC)}
+  button.primary{border-color:#0ff3; box-shadow:var(--glowC)}
+  button.warn{border-color:#ff3df777; box-shadow:var(--glowM)}
+  button:disabled{opacity:.55; cursor:not-allowed}
+  .meter{height:8px;flex:1; background:#0a1223; border:1px solid var(--line); border-radius:6px; overflow:hidden}
+  .meter span{display:block;height:100%;width:0;background:linear-gradient(90deg,#00e7ff,#ff3df7)}
+  canvas{width:100%;height:150px;background:linear-gradient(180deg,#081022 0%,#050a16 100%);
+    border:1px solid var(--line); border-radius:12px; margin-top:8px}
+  .score{margin-top:10px;padding:10px;border:1px dashed #21406a;border-radius:12px;background:#0b1428;line-height:1.6}
+  .score b{color:#d8e8ff}
+  .mut{color:var(--mut);font-size:12px}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0b1324;border:1px solid #22406a;color:#cfe6ff;
+    padding:10px 14px;border-radius:10px;box-shadow:0 4px 20px #0008;display:none;z-index:50}
+  .toast.ok{border-color:#117a63;color:#cffff2}
+  .toast.err{border-color:#7a1122;color:#ffe0e0}
+
+  /* modal */
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#0009;z-index:40}
+  .panel{width:min(720px,92vw);max-height:86vh;overflow:auto;background:#0b1020;border:1px solid #22365a;border-radius:16px;padding:16px}
+  .panel h3{margin:0 0 8px;font-size:18px}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px}
+  .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid #27406b;border-radius:10px;padding:9px 12px;cursor:pointer;background:#0c152a}
+  .btn:hover{box-shadow:0 0 0 1px #2b4a7f}
+  .mono{white-space:pre-wrap;background:#081226;border:1px solid #1a2e4e;border-radius:10px;padding:10px;font-family:ui-monospace,Consolas,monospace}
+
+  /* checkbox（重複表示対策でラベル内に収める） */
+  .chk{display:inline-flex;align-items:center;gap:8px;margin-right:14px}
+  .chk input{width:18px;height:18px}
+  a.saveLink{display:inline-flex;align-items:center;gap:8px;border:1px solid #27406b;border-radius:10px;padding:9px 12px;text-decoration:none;color:#d7e6ff;background:#0c152a}
+  a.saveLink:hover{box-shadow:0 0 0 1px #2b4a7f}
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<div class="wrap">
+  <div class="hdr">
+    <div class="logo">ROOMTRACKS / <span>WHY-MUSIC</span> — <span style="color:#ff3df7;text-shadow:var(--glowM)">Neon</span></div>
+    <button id="helpBtn" class="pill">? これはなに</button>
+    <div class="right pill" id="seedLab">seed:-</div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <span class="pill" id="songLab">–</span>
+      <span class="pill" id="styleLab">–</span>
+      <span class="pill" id="policyLab">Policy: Event</span>
+      <span class="right mut" id="formLab">構成: Intro→Verse→Pre→Chorus→Break→Drop→Bridge→Final→Outro</span>
+    </div>
+
+    <div class="row">
+      <label for="policySel">ポリシー</label>
+      <select id="policySel">
+        <option value="quiet">Quiet（無音）</option>
+        <option value="event" selected>Event（通常）</option>
+        <option value="commercial">Commercial（商用）</option>
+      </select>
+
+      <label for="styleSel">スタイル</label>
+      <select id="styleSel">
+        <option value="lofi" selected>LoFi</option>
+        <option value="citypop">CityPop</option>
+        <option value="house">Minimal House</option>
+      </select>
+
+      <label for="bpmRange">テンポ</label>
+      <input id="bpmRange" type="range" min="70" max="128" step="1" value="90">
+      <span id="bpmVal" class="mut">90</span>
+    </div>
+
+    <div class="row">
+      <label for="energySel">エナジー</label>
+      <select id="energySel">
+        <option value="standard" selected>Standard</option>
+        <option value="edge">Edge（ブレイク→ドロップ）</option>
+        <option value="earsafe">EarSafe（耳にやさしい）</option>
+        <option value="lowoff">LowEndOFF（重低音カット）</option>
+      </select>
+      <span class="mut">※Perc%が低いときはキックも鳴らさない</span>
+    </div>
+
+    <div class="row">
+      <label for="percRange">ビート</label>
+      <input id="percRange" type="range" min="0" max="100" step="1" value="28">
+      <span id="percVal" class="mut">28%</span>
+
+      <label for="brightRange">ブライト</label>
+      <input id="brightRange" type="range" min="2000" max="12000" step="100" value="6000">
+      <span id="brightVal" class="mut">6.0kHz</span>
+    </div>
+
+    <div class="row">
+      <label for="hpfRange">低音カット</label>
+      <input id="hpfRange" type="range" min="80" max="260" step="5" value="220">
+      <span id="hpfVal" class="mut">220Hz</span>
+
+      <span class="chk"><input id="superCut" type="checkbox" checked><label for="superCut">スーパーHPF</label></span>
+      <span class="chk"><input id="bassOff" type="checkbox"><label for="bassOff">ベースOFF</label></span>
+      <span class="chk"><input id="noiseGuard" type="checkbox" checked><label for="noiseGuard">ノイズガード</label></span>
+    </div>
+
+    <div class="row">
+      <button id="startBtn" class="primary">▶ 再生 / 次の曲</button>
+      <button id="stopBtn">⏹ 停止</button>
+      <button id="recBtn">● 録音開始</button>
+      <button id="saveRecBtn" disabled>💾 録音を保存</button>
+      <button id="licBtn">🧾 ライセンスJSON</button>
+      <div class="meter"><span id="meterFill"></span></div>
+    </div>
+
+    <div class="row mut" id="titleLab">—</div>
+    <canvas id="viz" width="1000" height="150"></canvas>
+
+    <div class="score mut" id="scoreBox">
+      <b>ScoreCard</b><br>
+      いまのセクション／進行／ミックス（Perc・明るさ・HPF）を短文で表示します。
+    </div>
+  </div>
+</div>
+
+<!-- Help -->
+<div id="helpModal" class="modal">
+  <div class="panel">
+    <h3>WHY-MUSIC とは</h3>
+    <p>その場でBGMを合成し、<b>いまこの音になっている理由</b>を短文で示す“説明責任つき”エンジンです。</p>
+    <ul>
+      <li>ScoreCard：セクション／進行／転調／ミックスの要約。</li>
+      <li>ライセンスJSON：seed・設定・利用条件を保存（再現・監査・共有）。</li>
+      <li>保存方法：PCは「保存リンク」／iPhoneは「新しいタブで開く」→共有→「ファイルに保存」。</li>
+    </ul>
+    <div class="btnrow"><button class="btn" id="helpClose">× 閉じる</button></div>
+  </div>
+</div>
+
+<!-- License -->
+<div id="licModal" class="modal">
+  <div class="panel">
+    <h3>ライセンスJSON</h3>
+    <div class="btnrow">
+      <button class="btn" id="licOpen">🔗 新しいタブで開く</button>
+      <button class="btn" id="licShare">📬 共有</button>
+      <button class="btn" id="licCopy">📋 クリップボードにコピー</button>
+      <button class="btn" id="licClose">× 閉じる</button>
+    </div>
+    <p class="mut" id="licHint"></p>
+    <p class="mut">↓ 直接保存したい場合はこのリンクをタップ</p>
+    <p><a id="licSaveLink" class="saveLink" href="#" download="roomtracks_license.json">⬇ 保存リンク（タップ）</a></p>
+    <div id="licBox" class="mono" style="font-size:12px"></div>
+  </div>
+</div>
+
+<!-- Recording saved (iOS向け救済) -->
+<div id="recModal" class="modal">
+  <div class="panel">
+    <h3>録音ファイル</h3>
+    <div class="btnrow">
+      <a id="recOpen" class="saveLink" href="#" target="_blank" rel="noopener">🔗 新しいタブで開く</a>
+      <a id="recSave" class="saveLink" href="#" download>⬇ 保存リンク（タップ）</a>
+      <button class="btn" id="recClose">× 閉じる</button>
+    </div>
+    <p class="mut">iPhoneは「新しいタブで開く」→共有→「ファイルに保存」が確実です。</p>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // ---- DOM ----
+  const ui = {
+    seedLab: document.getElementById('seedLab'),
+    songLab: document.getElementById('songLab'),
+    styleLab: document.getElementById('styleLab'),
+    policyLab: document.getElementById('policyLab'),
+    policySel: document.getElementById('policySel'),
+    styleSel: document.getElementById('styleSel'),
+    bpmRange: document.getElementById('bpmRange'),
+    bpmVal: document.getElementById('bpmVal'),
+    energySel: document.getElementById('energySel'),
+    percRange: document.getElementById('percRange'),
+    percVal: document.getElementById('percVal'),
+    brightRange: document.getElementById('brightRange'),
+    brightVal: document.getElementById('brightVal'),
+    hpfRange: document.getElementById('hpfRange'),
+    hpfVal: document.getElementById('hpfVal'),
+    superCut: document.getElementById('superCut'),
+    bassOff: document.getElementById('bassOff'),
+    noiseGuard: document.getElementById('noiseGuard'),
+    startBtn: document.getElementById('startBtn'),
+    stopBtn: document.getElementById('stopBtn'),
+    recBtn: document.getElementById('recBtn'),
+    saveRecBtn: document.getElementById('saveRecBtn'),
+    licBtn: document.getElementById('licBtn'),
+    meterFill: document.getElementById('meterFill'),
+    titleLab: document.getElementById('titleLab'),
+    viz: document.getElementById('viz'),
+    scoreBox: document.getElementById('scoreBox'),
+    formLab: document.getElementById('formLab'),
+    helpBtn: document.getElementById('helpBtn'),
+    helpModal: document.getElementById('helpModal'),
+    helpClose: document.getElementById('helpClose'),
+    licModal: document.getElementById('licModal'),
+    licOpen: document.getElementById('licOpen'),
+    licShare: document.getElementById('licShare'),
+    licCopy: document.getElementById('licCopy'),
+    licClose: document.getElementById('licClose'),
+    licBox: document.getElementById('licBox'),
+    licHint: document.getElementById('licHint'),
+    licSaveLink: document.getElementById('licSaveLink'),
+    recModal: document.getElementById('recModal'),
+    recOpen: document.getElementById('recOpen'),
+    recSave: document.getElementById('recSave'),
+    recClose: document.getElementById('recClose'),
+    toast: document.getElementById('toast'),
+  };
+  const vctx = ui.viz.getContext('2d');
+  function toast(msg, ok=true){ ui.toast.textContent=msg; ui.toast.className='toast '+(ok?'ok':'err'); ui.toast.style.display='block'; setTimeout(()=>ui.toast.style.display='none', 2500); }
+
+  // ---- State ----
+  let actx=null, master=null, dest=null, comp=null, limiter=null;
+  let masterHPF=null, lowShelf=null, airLPF=null, airHS=null, dcHPF=null, superHPF=null, notch=null, reverb=null;
+  let isPlaying=false, scheduleTimer=null, lookahead=0.12;
+  let mediaRec=null, chunks=[], lastBlob=null, recMime='audio/webm', recExt='webm', recTick=null;
+  let lastRecUrl=null;
+  let startTime=0, cursor=0, breakBar=-1, cur=null;
+
+  // ---- Utils ----
+  const ua = navigator.userAgent;
+  const caps = {
+    share: !!navigator.share,
+    iosSafari: /iP(hone|ad|od)/.test(ua) && /Safari/.test(ua) && !/CriOS|FxiOS/.test(ua)
+  };
+
+  function setDownloadLink(aEl, filename, blob){
+    const url = URL.createObjectURL(blob);
+    aEl.href = url;
+    aEl.download = filename;
+    // 使い終えたら解放（次の更新時に）
+    const prev = aEl.__prevUrl;
+    if(prev) URL.revokeObjectURL(prev);
+    aEl.__prevUrl = url;
+  }
+  function openBlobInNewTab(blob){
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.target='_blank'; a.rel='noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }
+
+  function initSeed(){
+    let s = localStorage.getItem('rt_seed');
+    if(!s){ s = (crypto.getRandomValues(new Uint32Array(1))[0]>>>0).toString(16); localStorage.setItem('rt_seed', s); }
+    ui.seedLab.textContent = 'seed:' + s;
+    return parseInt(s,16)>>>0;
+  }
+  let SEED = initSeed();
+  const makePRNG = (seed)=>()=> (seed=(seed*1664525+1013904223)>>>0, seed/2**32);
+  let rnd = makePRNG(SEED);
+  const choice = a=>a[Math.floor(rnd()*a.length)];
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+  const midiHz = n => 440*Math.pow(2,(n-69)/12);
+
+  // ---- Audio graph ----
+  async function unlockAudio(){
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended'){ try{ await actx.resume(); }catch(e){} }
+  }
+  function ensureGraph(){
+    if(master) return;
+    master = actx.createGain(); master.gain.value=0.9;
+
+    // DCブロッカー → 通常処理 → スーパーHPF → ノッチ → ミュート/ポンプ → リミッタ → コンプ
+    dcHPF = actx.createBiquadFilter(); dcHPF.type='highpass'; dcHPF.frequency.value=20; dcHPF.Q.value=0.1;
+
+    masterHPF = actx.createBiquadFilter(); masterHPF.type='highpass'; masterHPF.frequency.value=parseFloat(ui.hpfRange.value); masterHPF.Q.value=0.8;
+    lowShelf = actx.createBiquadFilter(); lowShelf.type='lowshelf'; lowShelf.frequency.value=220; lowShelf.gain.value=-7;
+    airLPF = actx.createBiquadFilter(); airLPF.type='lowpass'; airLPF.frequency.value=parseFloat(ui.brightRange.value); airLPF.Q.value=0.7;
+    airHS  = actx.createBiquadFilter(); airHS.type='highshelf'; airHS.frequency.value=7000; airHS.gain.value=-4;
+
+    superHPF = actx.createBiquadFilter(); superHPF.type='highpass'; superHPF.frequency.value = ui.superCut.checked?420:80; superHPF.Q.value=0.9;
+
+    notch = actx.createBiquadFilter(); notch.type='notch'; notch.frequency.value=7500; notch.Q.value=10;
+
+    window.__muteG__ = actx.createGain(); window.__muteG__.gain.value = 1;
+    window.__pumpG__ = actx.createGain(); window.__pumpG__.gain.value = 1;
+
+    limiter = actx.createDynamicsCompressor();
+    limiter.threshold.value=-8; limiter.knee.value=0; limiter.ratio.value=16; limiter.attack.value=0.003; limiter.release.value=0.11;
+    comp = actx.createDynamicsCompressor();
+    comp.threshold.value=-22; comp.knee.value=10; comp.ratio.value=2.0; comp.attack.value=0.006; comp.release.value=0.18;
+
+    dest = actx.createMediaStreamDestination();
+
+    // Reverb（低域強カット・短め）
+    const conv = actx.createConvolver(); conv.buffer = (function makeIR(sec=1.4, decay=2.2){
+      const rate=actx.sampleRate, len=Math.floor(rate*sec), ir=actx.createBuffer(2,len,rate);
+      for(let ch=0; ch<2; ch++){ const d=ir.getChannelData(ch);
+        for(let i=0;i<len;i++){ const t=i/len; d[i]=(Math.random()*2-1)*Math.pow(1-t,decay)*(0.6 - 0.6*Math.exp(-i/(rate*0.08))); }
+      } return ir;
+    })();
+    const revHPF=actx.createBiquadFilter(); revHPF.type='highpass'; revHPF.frequency.value=360;
+    conv.connect(masterHPF); revHPF.connect(conv);
+    reverb = { node: revHPF, send: (amt=0.06)=>{ const g=actx.createGain(); g.gain.value=amt; return g; } };
+
+    // route
+    master.connect(dcHPF);
+    dcHPF.connect(masterHPF);
+    masterHPF.connect(lowShelf);
+    lowShelf.connect(airLPF);
+    airLPF.connect(airHS);
+    airHS.connect(superHPF);
+    superHPF.connect(notch);
+    notch.connect(window.__muteG__);
+    window.__muteG__.connect(window.__pumpG__);
+    window.__pumpG__.connect(limiter);
+    limiter.connect(comp);
+    comp.connect(actx.destination);
+    comp.connect(dest);
+
+    // recorder mime（iOSで扱いやすい順）
+    const mimes = ['audio/mp4;codecs=aac','audio/mpeg','audio/webm;codecs=opus','audio/webm'];
+    for(const mt of mimes){
+      if(window.MediaRecorder && MediaRecorder.isTypeSupported(mt)){
+        recMime=mt; recExt = mt.includes('mpeg')?'mp3' : mt.includes('mp4')?'m4a' : 'webm'; break;
+      }
+    }
+  }
+
+  // sliders→filters
+  ui.hpfRange.addEventListener('input', ()=>{ ui.hpfVal.textContent = ui.hpfRange.value+'Hz'; masterHPF && (masterHPF.frequency.value=parseFloat(ui.hpfRange.value)); });
+  ui.superCut.addEventListener('change', ()=>{ superHPF && superHPF.frequency.setTargetAtTime(ui.superCut.checked? 420 : 80, actx?.currentTime||0, 0.05); });
+  ui.noiseGuard.addEventListener('change', ()=>{ notch && (notch.frequency.value = ui.noiseGuard.checked? 7500 : 20000); });
+  ui.brightRange.addEventListener('input', ()=>{
+    const v = parseFloat(ui.brightRange.value); ui.brightVal.textContent=(v/1000).toFixed(1)+'kHz';
+    airLPF && (airLPF.frequency.value=v);
+  });
+  ui.percRange.addEventListener('input', ()=>{ ui.percVal.textContent = ui.percRange.value+'%'; });
+
+  // pump/mute
+  function triggerPumpAll(t, depth=0.28, len=0.20){ const g=window.__pumpG__?.gain; if(!g) return; g.cancelScheduledValues(t); g.setValueAtTime(1 - depth, t); g.linearRampToValueAtTime(1.0, t + len); }
+  function hardMuteAt(t, dur=0.5){ const g=window.__muteG__?.gain; if(!g) return; g.cancelScheduledValues(t); g.setValueAtTime(0.0001, t); g.setTargetAtTime(1.0, t + Math.max(0.01,dur), 0.02); }
+
+  // ---- Instruments（さらに穏やか） ----
+  function env(atk=0.01,dec=0.24,sus=0.24,rel=0.20,peak=0.72){
+    const g=actx.createGain(); g.gain.value=0.0001;
+    g.trig=(t,d=0.3)=>{ g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(peak,t+atk);
+      const sLvl=sus>0?sus*peak:0.0001; g.gain.linearRampToValueAtTime(sLvl,t+atk+dec); g.gain.exponentialRampToValueAtTime(0.0001,t+atk+dec+Math.max(rel,d)); };
+    return g;
+  }
+  const pan = n=>{ const p=actx.createStereoPanner(); p.pan.value=n; return p; };
+
+  function poly(){
+    const hp=actx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=180;
+    const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1000; lp.Q.value=0.8;
+    hp.connect(lp);
+    const dry=actx.createGain(); dry.gain.value=0.12;
+    const send=reverb.send(0.05);
+    lp.connect(dry); dry.connect(master); lp.connect(send); send.connect(reverb.node);
+    return (t,midi,d=0.62,v=0.7)=>{
+      const o1=actx.createOscillator(), o2=actx.createOscillator(); o1.type='triangle'; o2.type='triangle';
+      o1.detune.value=-2; o2.detune.value=+2; o1.frequency.value=midiHz(midi); o2.frequency.value=midiHz(midi);
+      const e=env(); lp.connect(e); const p=pan(Math.random()*0.3-0.15); e.connect(p).connect(master);
+      o1.connect(hp); o2.connect(hp); e.trig(t,d); o1.start(t); o2.start(t); o1.stop(t+d+0.4); o2.stop(t+d+0.4);
+    };
+  }
+  function bass(){
+    const hp=actx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=200;
+    const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=380; lp.Q.value=0.8; hp.connect(lp);
+    const g=actx.createGain(); g.gain.value= ui.bassOff.checked ? 0.0 : 0.10; lp.connect(g).connect(master);
+    return (t,midi,d=0.22,v=0.68)=>{
+      if(ui.bassOff.checked) return;
+      const o=actx.createOscillator(); o.type='triangle'; o.frequency.value=midiHz(midi);
+      const e=env(0.006,0.10,0,0.12,0.68*v); lp.connect(e).connect(master); o.connect(hp); e.trig(t,d); o.start(t); o.stop(t+d+0.18);
+    };
+  }
+  function lead(){
+    const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1150; bp.Q.value=1.0;
+    const dry=actx.createGain(); dry.gain.value=0.15; const send=reverb.send(0.05);
+    bp.connect(dry); dry.connect(master); bp.connect(send); send.connect(reverb.node);
+    return (t,midi,d=0.20,v=0.72)=>{
+      const o=actx.createOscillator(); o.type='triangle'; o.frequency.value=midiHz(midi);
+      const e=env(0.008,0.14,0,0.14,0.72*v); o.connect(bp); bp.connect(e).connect(master);
+      e.trig(t,d); const p=pan(Math.random()<0.5?-0.35:0.35); e.connect(p).connect(master);
+      o.start(t); o.stop(t+d+0.18);
+    };
+  }
+  function kick(t,v=1){
+    const p = parseInt(ui.percRange.value,10)/100;
+    if(p<=0.15) return; // Perc%が低い時はキック自体を鳴らさない
+    const o=actx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(80,t+0.09);
+    const g=actx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.5*v,t+0.006); g.gain.exponentialRampToValueAtTime(0.0001,t+0.14);
+    o.connect(g).connect(master); o.start(t); o.stop(t+0.15);
+    triggerPumpAll(t, 0.22, 0.18);
+  }
+  function snare(t,v=0.38){
+    const L=actx.sampleRate*0.10, b=actx.createBuffer(1,L,actx.sampleRate), d=b.getChannelData(0);
+    for(let i=0;i<L;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(L*0.46));
+    const s=actx.createBufferSource(); s.buffer=b; const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=900; bp.Q.value=0.9;
+    const g=actx.createGain(); g.gain.value=0.18*v; s.connect(bp).connect(g).connect(master); s.start(t); s.stop(t+0.12);
+  }
+  function hat(t,v=0.18,len=0.018){
+    const b=actx.createBuffer(1,actx.sampleRate*len,actx.sampleRate), d=b.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(d.length*0.28));
+    const s=actx.createBufferSource(); s.buffer=b; const hp=actx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=8500; hp.Q.value=0.8;
+    const g=actx.createGain(); g.gain.value=(ui.noiseGuard.checked?0.08:0.1)*v; s.connect(hp).connect(g).connect(master); s.start(t); s.stop(t+len);
+  }
+
+  // ---- Composition ----
+  function makeScale(root=48,mode='major'){ const MAJ=[0,2,4,5,7,9,11], MIN=[0,2,3,5,7,8,10]; return (mode==='major'?MAJ:MIN).map(x=>root+x); }
+  function chordFromDegree(scale,deg){ if(deg===-2){ const r=scale[0]+10; return [r,r+4,r+7]; } const n=scale.length,i=((deg%7)+7)%7; return [scale[i],scale[(i+2)%n],scale[(i+4)%n]]; }
+  const STYLES={
+    lofi:{mode:'minor',progs:[[5,3,0,4],[0,5,3,4],[0,4,5,3]],
+      dr:(t,b,perc)=>{ const p=perc; if(b%4===0)kick(t,1); if(b%4===2 && p>0.15)snare(t,0.6*p); if(p>0.15){ hat(t,0.6*p,0.018); hat(t+cur.beat*0.5,0.45*p,0.016); } }},
+    citypop:{mode:'major',progs:[[0,5,3,4],[3,4,0,5],[0,3,4,5]],
+      dr:(t,b,perc)=>{ const p=perc; kick(t,1); if(b%4===2 && p>0.15)snare(t,0.62*p); if(p>0.15){ hat(t,0.56*p,0.018); hat(t+cur.beat*0.5,0.42*p,0.016); } }},
+    house:{mode:'minor',progs:[[0,5,4,5],[0,3,4,3]],
+      dr:(t,b,perc)=>{ const p=perc; kick(t,1); if(b%4===2 && p>0.15)snare(t,0.6*p); if(p>0.15){ hat(t,0.52*p,0.016); hat(t+cur.beat*0.5,0.40*p,0.014); } }}
+  };
+  function makeMelody(sc,bars,dens=0.5){ const ns=[]; let last=sc[2]; for(let b=0;b<bars;b++){ for(let s=0;s<8;s++){ if(Math.random()<dens){ const dir=Math.sign(Math.random()-0.5)||1, step=[1,1,2][Math.floor(Math.random()*3)];
+      const idx=clamp(sc.indexOf(last)+dir*step,0,sc.length-1); last=sc[idx]; ns.push({bar:b,div:s,midi:last,len:[0.5,1.0][Math.floor(Math.random()*2)]}); } } } return ns; }
+  function makeHook(sc){ const base=choice(sc.slice(2,5)); const A=[base, base+2, base+4], B=[base+4, base+2, base+7]; return {A,B}; }
+
+  function newSong(){
+    const S = STYLES[ui.styleSel.value];
+    const bpm = clamp(parseInt(ui.bpmRange.value||90), parseInt(ui.bpmRange.min), parseInt(ui.bpmRange.max));
+    ui.bpmVal.textContent=bpm;
+
+    const root=48+Math.floor(rnd()*12), sc=makeScale(root,S.mode);
+    const progA=choice(S.progs), progB=progA.slice().reverse(), progPre=[4,5,5,0], progBridge=[4,-2,0];
+    const secs=[
+      {name:'Intro',bars:4,  prog:progA,     transpose:0,  borrow:false},
+      {name:'Verse',bars:8,  prog:progA,     transpose:0,  borrow:false},
+      {name:'Pre',  bars:4,  prog:progPre,   transpose:0,  borrow:false},
+      {name:'Chorus',bars:8, prog:progB,     transpose:+2, borrow:false},
+      {name:'Break',bars:2,  prog:[0],       transpose:0,  borrow:false},
+      {name:'Drop', bars:8,  prog:progB,     transpose:+2, borrow:false},
+      {name:'Bridge',bars:4, prog:progBridge,transpose:0,  borrow:true},
+      {name:'Final',bars:8,  prog:progB,     transpose:+2, borrow:false},
+      {name:'Outro',bars:4,  prog:progA,     transpose:0,  borrow:false},
+    ];
+
+    const playChord=poly(), playBass=bass(), playLead=lead();
+    const melodies={}; secs.forEach(s=>melodies[s.name]=makeMelody(sc,s.bars, s.name==='Verse'?0.45:0.6));
+    const hook = makeHook(sc);
+
+    const totalBars=secs.reduce((a,s)=>a+s.bars,0), beat=60/bpm, end=totalBars*4*beat;
+    const title = `${choice(['Neon','Late','Electric','Soft','Hidden'])} ${choice(['City','Room','Garden','Echo','River'])}`;
+    return {S,bpm,beat,root,sc,secs,melodies,hook,totalBars,end,playChord,playBass,playLead,title};
+  }
+
+  function scoreText({secName,deg,transpose,borrow,barIndex}){
+    const degLab = Array.isArray(deg)?deg.map(d=> d===-2?'♭VII': ['I','II','III','IV','V','VI','VII'][((d%7)+7)%7] ).join('→'):'?';
+    const why=[]; if(transpose!==0) why.push(`サビ:+${transpose}半音`); if(borrow) why.push(`ブリッジ:借用和音`); if(barIndex%4===3) why.push('次小節:キック薄め');
+    return `いま: ${secName} ／ ${cur.bpm} BPM ／ ${ui.styleSel.value}
+なぜ: 進行=${degLab} ／ ${why.join(' / ')||'通常'}
+ミックス: Perc ${ui.percRange.value}% ／ Bright ${(parseFloat(ui.brightRange.value)/1000).toFixed(1)}kHz ／ HPF ${ui.hpfRange.value}${ui.superCut.checked?'(+super)':''}${ui.noiseGuard.checked?' ／ ノイズガード':''}`;
+  }
+
+  // ---- Viz ----
+  function drawViz(){
+    const w=ui.viz.width, h=ui.viz.height; vctx.clearRect(0,0,w,h);
+    if(!cur) return;
+    let x=0; const C={Intro:'#10233f',Verse:'#132a4c',Pre:'#1a2e58',Chorus:'#1a3a6e',Break:'#0f223b',Drop:'#25407a',Bridge:'#17315c',Final:'#2a4b87',Outro:'#10233f'};
+    cur.secs.forEach(s=>{ const bw=(s.bars/cur.totalBars)*w; vctx.fillStyle=C[s.name]||'#132a4c'; vctx.fillRect(x,0,bw-2,h);
+      vctx.fillStyle='rgba(255,255,255,0.12)'; vctx.fillText(s.name,x+6,14); x+=bw; });
+    if(actx && isPlaying){ const now=actx.currentTime-startTime, px=clamp(now/cur.end,0,1)*w; vctx.fillStyle='rgba(0,231,255,0.9)'; vctx.fillRect(px,0,2,h); }
+  }
+
+  // ---- Scheduler ----
+  function startSong(){
+    if(ui.policySel.value==='quiet'){ ui.policyLab.textContent='Policy: Quiet（無音）'; ui.titleLab.textContent='（Quietモード：無音既定）'; isPlaying=false; return; }
+    ui.policyLab.textContent='Policy: '+(ui.policySel.value==='commercial'?'Commercial':'Event');
+
+    cur = newSong(); ui.styleLab.textContent=ui.styleSel.value; ui.songLab.textContent=`${cur.bpm} BPM`; ui.titleLab.textContent=`♪ ${cur.title}`;
+    ui.scoreBox.textContent='ScoreCard – 生成開始'; drawViz();
+
+    startTime=actx.currentTime; cursor=0; breakBar=-1; isPlaying=true;
+    if(scheduleTimer) clearInterval(scheduleTimer);
+    scheduleTimer = setInterval(schedule, 50);
+    (function loop(){ drawViz(); if(isPlaying) requestAnimationFrame(loop); })();
+  }
+
+  function schedule(){
+    const now = actx.currentTime-startTime, ahead = now + lookahead, beat=cur.beat;
+    const perc = parseInt(ui.percRange.value,10)/100;
+    while(cursor < ahead && cursor < cur.end){
+      const bar = Math.floor(cursor/(beat*4));
+      const beatIn = Math.floor((cursor - bar*beat*4)/beat);
+      const t = startTime + cursor;
+
+      let acc=0, sec=cur.secs[0], idx=0;
+      for(let i=0;i<cur.secs.length;i++){ const s=cur.secs[i]; if(bar>=acc && bar<acc+s.bars){ sec=s; idx=i; break; } acc+=s.bars; }
+      const barInSec = bar - cur.secs.slice(0,idx).reduce((a,s)=>a+s.bars,0);
+
+      const deg = sec.prog[barInSec % sec.prog.length];
+      const chord = chordFromDegree(cur.sc,deg).map(n=>n+sec.transpose);
+      const bassRoot = (deg===-2) ? (cur.sc[0]+10+sec.transpose) : (chord[0]+sec.transpose);
+
+      const energy = ui.energySel.value;
+      if(energy === 'earsafe'){ masterHPF.frequency.setTargetAtTime(Math.max(220, parseFloat(ui.hpfRange.value)), actx.currentTime, 0.05);
+                               airLPF.frequency.setTargetAtTime(Math.max(4500, parseFloat(ui.brightRange.value)), actx.currentTime, 0.05);
+                               airHS.gain.setTargetAtTime(-5, actx.currentTime, 0.05); }
+      else if(energy === 'lowoff'){ masterHPF.frequency.setTargetAtTime(Math.max(260, parseFloat(ui.hpfRange.value)), actx.currentTime, 0.05);
+                               airLPF.frequency.setTargetAtTime(Math.max(4200, parseFloat(ui.brightRange.value)), actx.currentTime, 0.05);
+                               airHS.gain.setTargetAtTime(-4, actx.currentTime, 0.05); }
+      else { airHS.gain.setTargetAtTime(-4, actx.currentTime, 0.05); }
+
+      if(barInSec%4===3 && beatIn===3) breakBar = bar+1;
+
+      if((cursor % (beat*4)) < 1e-6){
+        const len = sec.name==='Break'?0.55:1.3, vol = sec.name==='Break'?0.5:0.7;
+        chord.forEach((n,i)=> cur.playChord(t+i*0.01, n, len, vol));
+        if(!ui.bassOff.checked && sec.name!=='Break'){
+          cur.playBass(t, bassRoot-12, 0.22, 0.68);
+          cur.playBass(t + beat*2, bassRoot-7, 0.20, 0.62);
+        }
+        ui.scoreBox.textContent = scoreText({secName:sec.name,deg:sec.prog,transpose:sec.transpose,borrow:sec.borrow,barIndex:barInSec});
+      }
+
+      if(sec.name==='Break'){
+        hardMuteAt(t, beat*4);
+      } else if(sec.name==='Drop'){
+        kick(t, 1);
+        if(beatIn%4===2 && perc>0.15) snare(t, Math.min(1,0.7*perc));
+        if(perc>0.15){ hat(t, Math.min(1,0.6*perc), 0.018); hat(t + beat*0.5, Math.min(1,0.45*perc), 0.016); }
+      } else {
+        if(!(breakBar===bar && beatIn===0)){ cur.S.dr(t, bar*4+beatIn, perc); }
+      }
+
+      const mel = cur.melodies[sec.name];
+      const secStartBar = cur.secs.slice(0,idx).reduce((a,s)=>a+s.bars,0);
+      mel.filter(n=>n.bar===bar-secStartBar).forEach(n=>{
+        const begin = bar*beat*4 + n.div*(beat*0.5);
+        if(begin >= cursor && begin < ahead){ cur.playLead(startTime+begin, n.midi+12+sec.transpose, n.len*beat, sec.name==='Break'?0.5:0.8); }
+      });
+
+      if((sec.name==='Chorus'||sec.name==='Final') && beatIn===0){
+        const motif = (barInSec%2===0) ? cur.hook.A : cur.hook.B;
+        motif.forEach((m,j)=> cur.playLead(t+0.25*j, m+12+sec.transpose, 0.18, 0.82));
+      }
+
+      ui.meterFill.style.width = `${Math.min(100,(now/cur.end)*100)}%`;
+      cursor += 0.025;
+    }
+    if(now > cur.end + 0.5){ clearInterval(scheduleTimer); scheduleTimer=null; startSong(); }
+  }
+
+  // ---- Recording ----
+  function startRec(){
+    if(!dest){ toast('まず再生してください', false); return; }
+    if(!window.MediaRecorder){ toast('このブラウザは録音に未対応', false); return; }
+    if(mediaRec && mediaRec.state==='recording') return;
+
+    mediaRec = new MediaRecorder(dest.stream, {mimeType:recMime});
+    chunks=[]; lastBlob=null; ui.saveRecBtn.disabled=true;
+
+    mediaRec.ondataavailable = e=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
+    mediaRec.onstop = ()=>{ try{
+      lastBlob = new Blob(chunks,{type:recMime});
+      ui.saveRecBtn.disabled=false; toast('録音を保存できます', true);
+      // 保存モーダルも準備（iOS対策）
+      const ts=new Date().toISOString().replace(/[:.]/g,'-');
+      const fname=`roomtrack-${ts}.${recExt}`;
+      if(lastRecUrl) URL.revokeObjectURL(lastRecUrl);
+      lastRecUrl = URL.createObjectURL(lastBlob);
+      ui.recOpen.href = lastRecUrl;
+      ui.recSave.href = lastRecUrl;
+      ui.recSave.download = fname;
+      ui.recModal.style.display='flex';
+    }catch(_){ toast('録音データ作成に失敗', false);} };
+
+    try{
+      mediaRec.start(400); // タイムスライス
+      recTick = setInterval(()=>{ try{ mediaRec && mediaRec.state==='recording' && mediaRec.requestData(); }catch(_){} }, 1200);
+      ui.recBtn.textContent='■ 録音停止';
+    }catch(e){ toast('録音開始に失敗', false); }
+  }
+  function stopRec(){
+    if(mediaRec && mediaRec.state==='recording'){
+      try{ mediaRec.requestData(); }catch(_){}
+      setTimeout(()=>{ try{ mediaRec.stop(); }catch(_){ toast('録音停止エラー', false); } }, 60);
+      clearInterval(recTick); recTick=null;
+      ui.recBtn.textContent='● 録音開始';
+    }else{
+      toast('録音中ではありません', false);
+    }
+  }
+  ui.saveRecBtn.addEventListener('click', ()=>{
+    if(!lastBlob){ toast('先に録音して停止してください', false); return; }
+    // 直接ダウンロード + モーダルも出す
+    const ts=new Date().toISOString().replace(/[:.]/g,'-');
+    const fname=`roomtrack-${ts}.${recExt}`;
+    const url = URL.createObjectURL(lastBlob);
+    const a=document.createElement('a'); a.href=url; a.download=fname; a.rel='noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    ui.recModal.style.display='flex';
+  });
+
+  // ---- License JSON ----
+  function buildLicense(){
+    return {
+      version:"why-music/1.0", generated_at:new Date().toISOString(),
+      seed:(ui.seedLab.textContent||'').replace('seed:','').trim(),
+      style:ui.styleSel.value, bpm:parseInt(ui.bpmRange.value), policy:ui.policySel.value,
+      sections:cur ? cur.secs.map(s=>({name:s.name,bars:s.bars,transpose:s.transpose,progression:s.prog})) : [],
+      mix:{beat:parseInt(ui.percRange.value), bright:parseInt(ui.brightRange.value), hpf:parseInt(ui.hpfRange.value), superHPF:ui.superCut.checked, bassOff:ui.bassOff.checked, noiseGuard:ui.noiseGuard.checked, energy:ui.energySel.value},
+      terms:(ui.policySel.value==='commercial')
+        ? {grant:"非独占",territory:"世界",media:"オンサイト/オンライン",duration:"無期限",attribution:"ROOMTRACKS / WHY-MUSIC",notes:"オンデバイス合成・サンプル不使用"}
+        : {grant:"非商用",notes:"学内/イベント等で利用可"}
+    };
+  }
+  function openLicModal(){
+    const payload = JSON.stringify(buildLicense(), null, 2);
+    ui.licBox.textContent = payload;
+    ui.licHint.textContent = 'iPhone/Safariは「新しいタブで開く」→共有→“ファイルに保存” か、下の「保存リンク（タップ）」が確実です。';
+    const blob = new Blob([payload],{type:'application/json'});
+    setDownloadLink(ui.licSaveLink, 'roomtracks_license.json', blob);
+    ui.licModal.style.display='flex';
+  }
+
+  // ---- UI events ----
+  ui.startBtn.addEventListener('click', async ()=>{ await unlockAudio(); ensureGraph(); SEED = initSeed(); rnd = makePRNG(SEED); if(ui.policySel.value==='quiet'){ ui.policyLab.textContent='Policy: Quiet（無音）'; ui.titleLab.textContent='（Quietモード：無音既定）'; return; } startSong(); });
+  ui.stopBtn.addEventListener('click', ()=>{ isPlaying=false; if(scheduleTimer) clearInterval(scheduleTimer); scheduleTimer=null; stopRec();
+    if(actx){ try{ actx.close(); }catch(e){} } actx=null; master=null; dest=null; ui.meterFill.style.width='0%'; });
+  ui.policySel.addEventListener('change', ()=>{ ui.policyLab.textContent='Policy: '+(ui.policySel.value==='quiet'?'Quiet':ui.policySel.value==='commercial'?'Commercial':'Event'); if(ui.policySel.value==='quiet'){ isPlaying=false; if(scheduleTimer) clearInterval(scheduleTimer); scheduleTimer=null; ui.titleLab.textContent='（Quietモード：無音既定）'; } else if(actx){ startSong(); }});
+  ui.styleSel.addEventListener('change', ()=>{ if(actx && isPlaying) startSong(); });
+  ui.energySel.addEventListener('change', ()=>{ if(actx && isPlaying) startSong(); });
+  ui.bpmRange.addEventListener('input', ()=>{ ui.bpmVal.textContent=ui.bpmRange.value; if(actx && isPlaying) startSong(); });
+  ui.hpfRange.addEventListener('change', ()=>{ if(actx && isPlaying) startSong(); });
+  ui.percRange.addEventListener('change', ()=>{ if(actx && isPlaying) startSong(); });
+  ui.brightRange.addEventListener('change', ()=>{ if(actx && isPlaying) startSong(); });
+  ui.bassOff.addEventListener('change', ()=>{ if(actx && isPlaying) startSong(); });
+  ui.noiseGuard.addEventListener('change', ()=>{ if(actx && isPlaying) startSong(); });
+
+  ui.helpBtn.addEventListener('click', ()=> ui.helpModal.style.display='flex');
+  ui.helpClose.addEventListener('click', ()=> ui.helpModal.style.display='none');
+  ui.licBtn.addEventListener('click', openLicModal);
+  ui.licClose.addEventListener('click', ()=> ui.licModal.style.display='none');
+
+  // License actions
+  ui.licOpen.addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(buildLicense(),null,2)],{type:'application/json'});
+    openBlobInNewTab(blob);
+  });
+  ui.licShare.addEventListener('click', async ()=>{
+    const blob = new Blob([JSON.stringify(buildLicense(),null,2)],{type:'application/json'});
+    const file = new File([blob],'roomtracks_license.json',{type:'application/json'});
+    if(navigator.share && (navigator.canShare?.({files:[file]}) || caps.iosSafari)){
+      try{ await navigator.share({files:[file], title:'roomtracks_license.json'}); toast('共有しました',true); }catch(_){ toast('共有をキャンセル',false); }
+    }else{
+      try{ await navigator.clipboard.writeText(JSON.stringify(buildLicense(),null,2)); toast('JSONをコピーしました',true); }catch(_){ toast('共有できませんでした',false); }
+    }
+  });
+  ui.licCopy.addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(JSON.stringify(buildLicense(),null,2)); toast('JSONをコピーしました',true); }
+    catch(_){ toast('コピーに失敗',false); }
+  });
+
+  // recording buttons
+  ui.recBtn.addEventListener('click', ()=>{ if(!actx){ toast('まず再生してください', false); return; } (!mediaRec || mediaRec.state!=='recording') ? startRec() : stopRec(); });
+  ui.recClose.addEventListener('click', ()=> ui.recModal.style.display='none');
+
+  // 初期ラベル
+  ui.bpmVal.textContent=ui.bpmRange.value;
+  ui.hpfVal.textContent=ui.hpfRange.value+'Hz';
+  ui.percVal.textContent=ui.percRange.value+'%';
+  ui.brightVal.textContent=(parseFloat(ui.brightRange.value)/1000).toFixed(1)+'kHz';
+});
+</script>
+</body>
+</html>
